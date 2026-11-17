@@ -22,8 +22,8 @@ MDRobot.setSensorPin(6, DigitalPin.P13)
 MDRobot.setSensorPin(7, DigitalPin.P14)
 MDRobot.setSensorPin(8, DigitalPin.P15)
 
-// ---- ตัวคีบ: S1 = แขน (ยก 45, วาง 110), S2 = ตัวคีบ (ปล่อย 45, คีบ 0) ----
-MDRobot.setGripper(MD_Servo.S1, 45, 110, MD_Servo.S2, 45, 0)
+// ---- ตัวคีบ: S1 = แขน (ยก 80, วาง 10), S2 = ตัวคีบ (อ้า 90, คีบ 0) ----
+MDRobot.setGripper(MD_Servo.S1, 80, 10, MD_Servo.S2, 90, 0)
 MDRobot.armUp()
 MDRobot.gripOpen()
 

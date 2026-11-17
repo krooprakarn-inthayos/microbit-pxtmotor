@@ -142,9 +142,9 @@ namespace MDRobot {
         brakeMs = 0
         armServo = MD_Servo.S1
         gripServo = MD_Servo.S2
-        armUpDeg = 45
-        armDownDeg = 110
-        gripOpenDeg = 45
+        armUpDeg = 80
+        armDownDeg = 10
+        gripOpenDeg = 90
         gripCloseDeg = 0
         armStepMs = 8
         armNow = -1
@@ -803,7 +803,7 @@ namespace MDRobot {
      */
     //% blockId=md_setgripper block="Set Gripper Arm %arm|Up %up|Down %down|Grip %grip|Open %open|Close %close"
     //% arm.defl=MD_Servo.S1 grip.defl=MD_Servo.S2
-    //% up.defl=45 down.defl=110 open.defl=45 close.defl=0
+    //% up.defl=80 down.defl=10 open.defl=90 close.defl=0
     //% inlineInputMode=inline
     //% group="Gripper" weight=100
     export function setGripper(arm: MD_Servo, up: number, down: number, grip: MD_Servo, open: number, close: number): void {
