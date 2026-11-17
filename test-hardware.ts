@@ -6,6 +6,9 @@
 // A+B : เปิด/ปิดแสดงค่าเซนเซอร์บนจอ (คอลัมน์ซ้าย->ขวา) และส่งค่าออก Serial
 //       แต่ละเซนเซอร์ต้องเปลี่ยน 0/1 เมื่อเลื่อนผ่านเส้นดำ
 
+// ---- มอเตอร์: หุ่นวิ่งถอยหลัง จึงกลับทิศทั้งสองล้อ (reverse ON) ----
+MDRobot.setMotors(motor.Motors.M1, true, motor.Motors.M2, true)
+
 MDRobot.setGripper(MD_Servo.S1, 80, 10, MD_Servo.S2, 90, 0)
 let showSensor = false
 

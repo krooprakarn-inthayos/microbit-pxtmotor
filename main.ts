@@ -11,6 +11,9 @@ let KD = 0.1
 // ปรับค่านี้จนหุ่นเลี้ยวแล้วตรงเส้นพอดี
 let CROSS_MS = 250
 
+// ---- มอเตอร์: หุ่นวิ่งถอยหลัง จึงกลับทิศทั้งสองล้อ (reverse ON) ----
+MDRobot.setMotors(motor.Motors.M1, true, motor.Motors.M2, true)
+
 // ---- ตั้งค่าเซนเซอร์ (ค่าเริ่มต้นในบล็อกตรงกับหุ่นนี้อยู่แล้ว ใส่ไว้ให้เห็นชัด) ----
 MDRobot.setSensorCount(8)
 MDRobot.setSensorPin(1, DigitalPin.P0)
