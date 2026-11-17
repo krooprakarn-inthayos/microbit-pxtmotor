@@ -85,38 +85,71 @@ enum MD_TurnSensor {
 namespace MDRobot {
     // ---------- เซนเซอร์ ----------
     // ค่าเริ่มต้นตามหุ่นจริง: 8 ตัว เรียงซ้าย -> ขวา P0 P1 P2 P8 P12 P13 P14 P15
-    let PINS: DigitalPin[] = [DigitalPin.P0, DigitalPin.P1, DigitalPin.P2, DigitalPin.P8, DigitalPin.P12, DigitalPin.P13, DigitalPin.P14, DigitalPin.P15]
-    let N = 8
-    let pullReady = false
+    let PINS: DigitalPin[]
+    let N: number
+    let pullReady: boolean
     // ค่าดิจิทัลที่เซนเซอร์ให้เมื่ออยู่บนเส้น (ได้จาก Calibrate) ค่าเริ่มต้น: เส้นดำ = 1
-    let LINE_LEVEL = [1, 1, 1, 1, 1, 1, 1, 1, 1]
-    let GROUND_LEVEL = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let LINE_LEVEL: number[]
+    let GROUND_LEVEL: number[]
     // ค่าเซนเซอร์ล่าสุด 0 (พื้น) หรือ 1000 (เส้น)
-    let V = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let V: number[]
 
-    let pdFirst = 0
-    let pdLast = 7
-    let previousError = 0
-    let lastPos = 3500
+    let pdFirst: number
+    let pdLast: number
+    let previousError: number
+    let lastPos: number
 
     // ---------- มอเตอร์ ----------
-    let leftMotor = motor.Motors.M1
-    let rightMotor = motor.Motors.M2
-    let leftReverse = false
-    let rightReverse = false
-    let compLeft = 0
-    let compRight = 0
-    let brakeMs = 0
+    let leftMotor: motor.Motors
+    let rightMotor: motor.Motors
+    let leftReverse: boolean
+    let rightReverse: boolean
+    let compLeft: number
+    let compRight: number
+    let brakeMs: number
 
     // ---------- ตัวคีบ ----------
-    let armServo = MD_Servo.S1
-    let gripServo = MD_Servo.S2
-    let armUpDeg = 45
-    let armDownDeg = 110
-    let gripOpenDeg = 45
-    let gripCloseDeg = 0
-    let armStepMs = 8
-    let armNow = -1
+    let armServo: MD_Servo
+    let gripServo: MD_Servo
+    let armUpDeg: number
+    let armDownDeg: number
+    let gripOpenDeg: number
+    let gripCloseDeg: number
+    let armStepMs: number
+    let armNow: number
+
+    // MakeCode อาจรันโค้ด on start ของผู้ใช้ก่อนบรรทัดตั้งค่าตัวแปรในไฟล์นี้
+    // จึงตั้งค่าเริ่มต้นทั้งหมดในฟังก์ชันนี้ และเรียกทุกครั้งที่ใช้บล็อก
+    let ready: boolean
+    function initState() {
+        if (ready) return
+        ready = true
+        PINS = [DigitalPin.P0, DigitalPin.P1, DigitalPin.P2, DigitalPin.P8, DigitalPin.P12, DigitalPin.P13, DigitalPin.P14, DigitalPin.P15]
+        N = 8
+        LINE_LEVEL = [1, 1, 1, 1, 1, 1, 1, 1, 1]
+        GROUND_LEVEL = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        V = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        pdFirst = 0
+        pdLast = 7
+        previousError = 0
+        lastPos = 3500
+        leftMotor = motor.Motors.M1
+        rightMotor = motor.Motors.M2
+        leftReverse = false
+        rightReverse = false
+        compLeft = 0
+        compRight = 0
+        brakeMs = 0
+        armServo = MD_Servo.S1
+        gripServo = MD_Servo.S2
+        armUpDeg = 45
+        armDownDeg = 110
+        gripOpenDeg = 45
+        gripCloseDeg = 0
+        armStepMs = 8
+        armNow = -1
+        pullReady = false
+    }
 
     // ================= ภายใน =================
 
@@ -321,6 +354,7 @@ namespace MDRobot {
     //% speed.min=-100 speed.max=100 speed.defl=50
     //% group="Motor Control" weight=100
     export function motorWrite(m: MD_Motor, speed: number): void {
+        initState()
         if (m == MD_Motor.Left) setOne(leftMotor, speed + compLeft, leftReverse)
         else setOne(rightMotor, speed + compRight, rightReverse)
     }
@@ -330,6 +364,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Motor Control" weight=99
     export function motorGo(left: number, right: number): void {
+        initState()
         drive(left, right)
     }
 
@@ -337,6 +372,7 @@ namespace MDRobot {
     //% speed.min=0 speed.max=100 speed.defl=50
     //% group="Motor Control" weight=98
     export function Turn(dir: MD_Dir, speed: number): void {
+        initState()
         if (dir == MD_Dir.Left) drive(0, speed)
         else drive(speed, 0)
     }
@@ -345,6 +381,7 @@ namespace MDRobot {
     //% speed.min=0 speed.max=100 speed.defl=50
     //% group="Motor Control" weight=97
     export function Spin(dir: MD_Dir, speed: number): void {
+        initState()
         if (dir == MD_Dir.Left) drive(-speed, speed)
         else drive(speed, -speed)
     }
@@ -352,6 +389,7 @@ namespace MDRobot {
     //% blockId=md_stop block="Motor Stop"
     //% group="Motor Control" weight=96
     export function motorStop(): void {
+        initState()
         stopAll()
     }
 
@@ -364,6 +402,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Motor Control" weight=91 advanced=true
     export function setMotors(left: motor.Motors, lrev: boolean, right: motor.Motors, rrev: boolean): void {
+        initState()
         leftMotor = left
         rightMotor = right
         leftReverse = lrev
@@ -375,6 +414,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Motor Control" weight=90 advanced=true
     export function motorCompensate(left: number, right: number): void {
+        initState()
         compLeft = left
         compRight = right
     }
@@ -383,6 +423,7 @@ namespace MDRobot {
     //% ms.min=0 ms.max=200 ms.defl=0
     //% group="Motor Control" weight=89 advanced=true
     export function setBrakeTime(ms: number): void {
+        initState()
         brakeMs = ms
     }
 
@@ -392,6 +433,7 @@ namespace MDRobot {
     //% degree.min=0 degree.max=180 degree.defl=90
     //% group="Servo Control" weight=100
     export function servoWrite(servo: MD_Servo, degree: number): void {
+        initState()
         motor.servo(servoIndex(servo), degree)
         if (servo == armServo) armNow = degree
     }
@@ -402,6 +444,7 @@ namespace MDRobot {
     //% blockId=md_servo_stop block="Servo Stop %servo"
     //% group="Servo Control" weight=99
     export function servoStop(servo: MD_Servo): void {
+        initState()
         motor.servoOff(servoIndex(servo), 0)
     }
 
@@ -414,6 +457,7 @@ namespace MDRobot {
     //% n.min=2 n.max=9 n.defl=8
     //% group="Sensor" weight=100
     export function setSensorCount(n: number): void {
+        initState()
         N = Math.constrain(Math.round(n), 2, 9)
         while (PINS.length < N) PINS.push(DigitalPin.P16)
         pullReady = false
@@ -431,6 +475,7 @@ namespace MDRobot {
     //% pin.defl=DigitalPin.P0
     //% group="Sensor" weight=99
     export function setSensorPin(index: number, pin: DigitalPin): void {
+        initState()
         let i = Math.constrain(Math.round(index), 1, 9) - 1
         while (PINS.length <= i) PINS.push(DigitalPin.P16)
         PINS[i] = pin
@@ -444,6 +489,7 @@ namespace MDRobot {
     //% index.min=1 index.max=9 index.defl=1
     //% group="Sensor" weight=95
     export function SensorRead(index: number): number {
+        initState()
         readAll()
         let i = Math.constrain(Math.round(index), 1, N) - 1
         return onLine(i) ? 1 : 0
@@ -457,6 +503,7 @@ namespace MDRobot {
     //% trig.defl=DigitalPin.P16 echo.defl=DigitalPin.P16
     //% group="Sensor" weight=90 advanced=true
     export function distanceRead(trig: DigitalPin, echo: DigitalPin): number {
+        initState()
         pins.setPull(echo, PinPullMode.PullNone)
         pins.digitalWritePin(trig, 0)
         control.waitMicros(2)
@@ -478,6 +525,7 @@ namespace MDRobot {
     //% blockId=md_calibrate block="SensorCalibrate"
     //% group="Line Follower" weight=100
     export function SensorCalibrate(): void {
+        initState()
         stopAll()
         serial.writeLine("")
         tone(587)
@@ -530,6 +578,7 @@ namespace MDRobot {
     //% blockId=md_setcolor block="SETColorLine $line"
     //% group="Line Follower" weight=95
     export function ValueSensorSET(line: number[]): void {
+        initState()
         for (let i = 0; i < 9; i++) {
             if (i < line.length) {
                 LINE_LEVEL[i] = line[i] == 0 ? 0 : 1
@@ -542,6 +591,7 @@ namespace MDRobot {
     //% blockId=md_print block="PrintSensorValue"
     //% group="Line Follower" weight=94
     export function PrintSensorValue(): void {
+        initState()
         if (!pullReady) setupPins()
         let s = "Sensor Value:"
         for (let i = 0; i < N; i++) {
@@ -556,6 +606,7 @@ namespace MDRobot {
     //% blockId=md_position block="GETPosition"
     //% group="Line Follower" weight=93
     export function GETPosition(): number {
+        initState()
         readAll()
         return positionFromV()
     }
@@ -567,6 +618,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Line Follower" weight=90
     export function Follower(minSpeed: number, maxSpeed: number, kp: number, kd: number): void {
+        initState()
         readAll()
         pdFromV(minSpeed, maxSpeed, kp, kd)
     }
@@ -579,6 +631,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Line Follower" weight=85
     export function ForwardLINE(find: MD_Find, minSpeed: number, maxSpeed: number, kp: number, kd: number): void {
+        initState()
         readAll()
         while (junction(MD_Find.Center)) {
             drive(minSpeed, minSpeed)
@@ -608,6 +661,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Line Follower" weight=84
     export function ForwardLINECount(find: MD_Find, count: number, minSpeed: number, maxSpeed: number, kp: number, kd: number): void {
+        initState()
         let found = 0
         while (true) {
             readAll()
@@ -640,6 +694,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Line Follower" weight=83
     export function ForwardLINECustom(pattern: string, minSpeed: number, maxSpeed: number, kp: number, kd: number): void {
+        initState()
         let want = [2, 2, 2, 2, 2, 2, 2, 2, 2]
         let need = 0
         for (let i = 0; i < N; i++) {
@@ -675,6 +730,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Line Follower" weight=80
     export function ForwardTIME(ms: number, minSpeed: number, maxSpeed: number, kp: number, kd: number): void {
+        initState()
         let t = control.millis()
         while (control.millis() - t < ms) {
             readAll()
@@ -694,6 +750,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Line Follower" weight=75
     export function TurnLINE(dir: MD_Dir, speed: number, sensor: MD_TurnSensor, fastTime: number): void {
+        initState()
         let slow = 20
         let timer = control.millis()
         let s = 0
@@ -728,6 +785,7 @@ namespace MDRobot {
     //% first.min=1 first.max=9 first.defl=1 last.min=1 last.max=9 last.defl=8
     //% group="Line Follower" weight=70 advanced=true
     export function setPDSensors(first: number, last: number): void {
+        initState()
         let f = Math.constrain(Math.round(first), 1, N) - 1
         let l = Math.constrain(Math.round(last), 1, N) - 1
         if (l > f) {
@@ -749,6 +807,7 @@ namespace MDRobot {
     //% inlineInputMode=inline
     //% group="Gripper" weight=100
     export function setGripper(arm: MD_Servo, up: number, down: number, grip: MD_Servo, open: number, close: number): void {
+        initState()
         armServo = arm
         gripServo = grip
         armUpDeg = up
@@ -775,18 +834,21 @@ namespace MDRobot {
     //% blockId=md_armup block="Arm Up"
     //% group="Gripper" weight=95
     export function armUp(): void {
+        initState()
         moveArm(armUpDeg)
     }
 
     //% blockId=md_armdown block="Arm Down"
     //% group="Gripper" weight=94
     export function armDown(): void {
+        initState()
         moveArm(armDownDeg)
     }
 
     //% blockId=md_gripopen block="Grip Open"
     //% group="Gripper" weight=93
     export function gripOpen(): void {
+        initState()
         motor.servo(servoIndex(gripServo), gripOpenDeg)
         basic.pause(300)
     }
@@ -794,6 +856,7 @@ namespace MDRobot {
     //% blockId=md_gripclose block="Grip Close"
     //% group="Gripper" weight=92
     export function gripClose(): void {
+        initState()
         motor.servo(servoIndex(gripServo), gripCloseDeg)
         basic.pause(300)
     }
@@ -801,6 +864,7 @@ namespace MDRobot {
     //% blockId=md_pick block="Pick Up"
     //% group="Gripper" weight=90
     export function pickUp(): void {
+        initState()
         stopAll()
         gripOpen()
         armDown()
@@ -812,6 +876,7 @@ namespace MDRobot {
     //% blockId=md_put block="Put Down"
     //% group="Gripper" weight=89
     export function putDown(): void {
+        initState()
         stopAll()
         armDown()
         basic.pause(150)
@@ -826,6 +891,7 @@ namespace MDRobot {
     //% ms.defl=8
     //% group="Gripper" weight=85 advanced=true
     export function setArmStep(ms: number): void {
+        initState()
         armStepMs = ms
     }
 }
