@@ -6,8 +6,9 @@
  *       Servo S1 = แขนยก, S2 = ตัวคีบ (ผ่านชิป I2C บนบอร์ด)
  *       เซนเซอร์เส้นแบบดิจิทัล (0/1) 2–9 ตัว ต่อขา micro:bit ที่บอร์ดมีให้:
  *       P0 P1 P2 P8 P12 P13 P14 P15 P16
- *       ค่าเริ่มต้น 6 ตัว เรียงซ้าย -> ขวา: P8, P12, P13, P14, P15, P16
- *       Ultrasonic (ถ้าติด): Trig = P1, Echo = P2 (เหมือน PTKidsBiT)
+ *       ค่าเริ่มต้น 8 ตัว เรียงซ้าย -> ขวา: P0, P1, P2, P8, P12, P13, P14, P15
+ *       Ultrasonic (ถ้าติด): เลือกขา Trig / Echo ในบล็อก GETDistance (ห้ามซ้ำกับขาเซนเซอร์)
+ *       P0 ต่อเซนเซอร์: บล็อกจะไม่เล่นเสียง และไม่ควรใช้บล็อกหมวด Music
  *
  * ต่างจาก PTKidsBiT:
  *   - บอร์ดนี้ไม่มีชิป ADC: เซนเซอร์อ่านได้แค่ เห็นเส้น / ไม่เห็นเส้น (ไม่มี ADCRead)
@@ -93,6 +94,8 @@ namespace MDRobot {
     let GROUND_LEVEL: number[]
     // ค่าเซนเซอร์ล่าสุด 0 (พื้น) หรือ 1000 (เส้น)
     let V: number[]
+    // เซนเซอร์ที่ใช้ได้ (SensorCalibrate จะตัดตัวที่อ่านเส้นกับพื้นได้ค่าเท่ากันออก)
+    let OK: boolean[]
 
     let pdFirst: number
     let pdLast: number
@@ -107,6 +110,7 @@ namespace MDRobot {
     let compLeft: number
     let compRight: number
     let brakeMs: number
+    let turnSlow: number
 
     // ---------- ตัวคีบ ----------
     let armServo: MD_Servo
@@ -129,6 +133,7 @@ namespace MDRobot {
         LINE_LEVEL = [1, 1, 1, 1, 1, 1, 1, 1, 1]
         GROUND_LEVEL = [0, 0, 0, 0, 0, 0, 0, 0, 0]
         V = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        OK = [true, true, true, true, true, true, true, true, true]
         pdFirst = 0
         pdLast = 7
         previousError = 0
@@ -140,6 +145,7 @@ namespace MDRobot {
         compLeft = 0
         compRight = 0
         brakeMs = 0
+        turnSlow = 20
         armServo = MD_Servo.S1
         gripServo = MD_Servo.S2
         armUpDeg = 80
@@ -177,9 +183,16 @@ namespace MDRobot {
         }
     }
 
+    // ชดเชยความเร็วเฉพาะตอนสั่งให้ล้อหมุน (สั่ง 0 ล้อต้องหยุดจริง)
+    function withComp(v: number, comp: number): number {
+        if (v == 0) return 0
+        if (v > 0) return v + comp
+        return v - comp
+    }
+
     function drive(left: number, right: number) {
-        setOne(leftMotor, left + compLeft, leftReverse)
-        setOne(rightMotor, right + compRight, rightReverse)
+        setOne(leftMotor, withComp(left, compLeft), leftReverse)
+        setOne(rightMotor, withComp(right, compRight), rightReverse)
     }
 
     function stopAll() {
@@ -203,15 +216,32 @@ namespace MDRobot {
     }
 
     function onLine(i: number): boolean {
-        return V[i] > 500
+        return OK[i] && V[i] > 500
     }
 
     function countOnLine(): number {
         let c = 0
         for (let i = 0; i < N; i++) {
-            if (V[i] > 500) c += 1
+            if (onLine(i)) c += 1
         }
         return c
+    }
+
+    function goodCount(): number {
+        let c = 0
+        for (let i = 0; i < N; i++) {
+            if (OK[i]) c += 1
+        }
+        return c
+    }
+
+    // ถ้าเซนเซอร์ตัวที่เลือกใช้ไม่ได้ ให้ใช้ตัวที่ใช้ได้ที่อยู่ใกล้ที่สุดแทน
+    function nearestGood(i: number): number {
+        for (let d = 0; d < N; d++) {
+            if (i - d >= 0 && OK[i - d]) return i - d
+            if (i + d < N && OK[i + d]) return i + d
+        }
+        return i
     }
 
     function positionFromV(): number {
@@ -219,13 +249,16 @@ namespace MDRobot {
         let sum = 0
         let wsum = 0
         for (let k = 0; k < n; k++) {
+            if (!OK[pdFirst + k]) continue
             sum += V[pdFirst + k]
             wsum += V[pdFirst + k] * k * 1000
         }
         if (sum == 0) {
-            // หลุดเส้น: คืนค่าสุดขอบฝั่งที่เห็นเส้นครั้งสุดท้าย
-            if (lastPos < (n - 1) * 500) return 0
-            return (n - 1) * 1000
+            // ไม่มีตัวไหนเห็นเส้น: ถ้าครั้งล่าสุดเห็นเส้นที่ขอบ ให้หมุนกลับทางนั้นเต็มที่
+            // ถ้าครั้งล่าสุดเห็นเส้นตรงกลาง (เส้นอยู่ระหว่างเซนเซอร์ หรือตกที่ตัวที่เสีย) ใช้ค่าเดิม
+            if (lastPos < 1000) return 0
+            if (lastPos > (n - 2) * 1000) return (n - 1) * 1000
+            return Math.round(lastPos)
         }
         lastPos = wsum / sum
         return Math.round(lastPos)
@@ -256,19 +289,20 @@ namespace MDRobot {
 
     function junction(find: MD_Find): boolean {
         if (find == MD_Find.Center) {
-            return countOnLine() >= Math.max(2, Math.idiv(N * 3 + 3, 4))
+            let g = goodCount()
+            return countOnLine() >= Math.max(2, Math.idiv(g * 3 + 3, 4))
         }
         let k = sideCount()
         if (find == MD_Find.Left) {
             for (let i = 0; i < k; i++) {
-                if (!onLine(i)) return false
+                if (OK[i] && !onLine(i)) return false
             }
-            return !onLine(N - 1)
+            return !onLine(nearestGood(N - 1))
         }
         for (let i = N - k; i < N; i++) {
-            if (!onLine(i)) return false
+            if (OK[i] && !onLine(i)) return false
         }
-        return !onLine(0)
+        return !onLine(nearestGood(0))
     }
 
     // เซนเซอร์แถวกลาง (ใช้ในช่วงแรกของ TurnLINE)
@@ -282,11 +316,11 @@ namespace MDRobot {
 
     function turnSensorOnLine(sensor: MD_TurnSensor): boolean {
         if (sensor == MD_TurnSensor.Center) {
-            if (N % 2 == 1) return onLine(Math.idiv(N, 2))
-            return onLine(N / 2 - 1) || onLine(N / 2)
+            if (N % 2 == 1) return onLine(nearestGood(Math.idiv(N, 2)))
+            return onLine(nearestGood(N / 2 - 1)) || onLine(nearestGood(N / 2))
         }
         let i = Math.constrain(sensor - 1, 0, N - 1)
-        return onLine(i)
+        return onLine(nearestGood(i))
     }
 
     // ปลดตัวต้านทานดึงลงภายในของ micro:bit ทุกขาเซนเซอร์ (ค่าเริ่มต้นเป็น PullDown
@@ -355,8 +389,8 @@ namespace MDRobot {
     //% group="Motor Control" weight=100
     export function motorWrite(m: MD_Motor, speed: number): void {
         initState()
-        if (m == MD_Motor.Left) setOne(leftMotor, speed + compLeft, leftReverse)
-        else setOne(rightMotor, speed + compRight, rightReverse)
+        if (m == MD_Motor.Left) setOne(leftMotor, withComp(speed, compLeft), leftReverse)
+        else setOne(rightMotor, withComp(speed, compRight), rightReverse)
     }
 
     //% blockId=md_motorGo block="Motor Left %left|Motor Right %right"
@@ -520,7 +554,7 @@ namespace MDRobot {
 
     /**
      * Calibrate แบบ PTKidsBiT: วางเซนเซอร์บนเส้น กด A -> วางบนพื้น กด A
-     * จำว่าเซนเซอร์แต่ละตัวให้ 0 หรือ 1 บนเส้น ตัวที่ให้ค่าเท่ากันทั้งสองแบบจะแสดงเลขบนจอ
+     * จำว่าเซนเซอร์แต่ละตัวให้ 0 หรือ 1 บนเส้น ตัวที่ให้ค่าเท่ากันทั้งสองแบบจะแสดงเลขบนจอ และถูกตัดออกจากการคำนวณ
      */
     //% blockId=md_calibrate block="SensorCalibrate"
     //% group="Line Follower" weight=100
@@ -558,7 +592,11 @@ namespace MDRobot {
             if (lineLv[i] != groundLv[i]) {
                 LINE_LEVEL[i] = lineLv[i]
                 GROUND_LEVEL[i] = groundLv[i]
+                OK[i] = true
             } else {
+                // อ่านเส้นกับพื้นได้ค่าเท่ากัน: ตัดออก ไม่ใช้คำนวณ (หุ่นยังวิ่งได้ด้วยตัวที่เหลือ)
+                OK[i] = false
+                serial.writeLine("Sensor " + (i + 1) + " not used (Line = Ground = " + lineLv[i] + ")")
                 bad += 1
                 basic.showNumber(i + 1)
                 basic.pause(300)
@@ -583,6 +621,7 @@ namespace MDRobot {
             if (i < line.length) {
                 LINE_LEVEL[i] = line[i] == 0 ? 0 : 1
                 GROUND_LEVEL[i] = 1 - LINE_LEVEL[i]
+                OK[i] = true
             }
         }
         previousError = 0
@@ -601,7 +640,7 @@ namespace MDRobot {
     }
 
     /**
-     * ตำแหน่งเส้น 0 (ซ้ายสุด) ... (จำนวนเซนเซอร์ - 1) x 1000 (ขวาสุด) เช่น 6 ตัว = 0–5000 กลาง 2500
+     * ตำแหน่งเส้น 0 (ซ้ายสุด) ... (จำนวนเซนเซอร์ - 1) x 1000 (ขวาสุด) เช่น 8 ตัว = 0–7000 กลาง 3500
      */
     //% blockId=md_position block="GETPosition"
     //% group="Line Follower" weight=93
@@ -740,7 +779,7 @@ namespace MDRobot {
     }
 
     /**
-     * หมุนให้พ้นเส้นเดิม แล้วหมุนจนเซนเซอร์ที่เลือกเจอเส้นใหม่ ความเร็ว Speed ช่วง Fast Time แล้วลดเหลือ 20
+     * หมุนให้พ้นเส้นเดิม แล้วหมุนจนเซนเซอร์ที่เลือกเจอเส้นใหม่ ความเร็ว Speed ช่วง Fast Time แล้วลดเหลือความเร็วช้า (ค่าเริ่มต้น 20)
      * Center = เซนเซอร์ตัวกลาง (จำนวนคู่ = ตัวกลางตัวใดตัวหนึ่ง)
      */
     //% blockId=md_turnline block="TurnLINE %dir|Speed %speed|Sensor %sensor|Fast Time %fastTime"
@@ -751,7 +790,7 @@ namespace MDRobot {
     //% group="Line Follower" weight=75
     export function TurnLINE(dir: MD_Dir, speed: number, sensor: MD_TurnSensor, fastTime: number): void {
         initState()
-        let slow = 20
+        let slow = turnSlow
         let timer = control.millis()
         let s = 0
         while (true) {
@@ -759,7 +798,7 @@ namespace MDRobot {
             if (!middleOnLine()) break
             s = timer + fastTime - control.millis()
             if (s > speed) s = speed
-            else if (s < 0) s = slow
+            if (s < slow) s = slow
             if (dir == MD_Dir.Left) drive(-s, s)
             else drive(s, -s)
         }
@@ -768,7 +807,7 @@ namespace MDRobot {
             if (turnSensorOnLine(sensor)) break
             s = timer + fastTime - control.millis()
             if (s > speed) s = speed
-            else if (s < 0) s = slow
+            if (s < slow) s = slow
             if (dir == MD_Dir.Left) drive(-s, s)
             else drive(s, -s)
         }
@@ -776,6 +815,18 @@ namespace MDRobot {
         else stopWithBrake(s, -s)
         previousError = 0
         lastPos = (pdLast - pdFirst) * 500
+    }
+
+    /**
+     * ความเร็วช้าตอนท้ายของ TurnLINE (ค่าเริ่มต้น 20 เหมือน PTKidsBiT)
+     * เพิ่มค่านี้ถ้าหุ่นหยุดค้างระหว่างเลี้ยว (แบตอ่อน หรือมอเตอร์หมุนไม่ไหวที่ความเร็วต่ำ)
+     */
+    //% blockId=md_turnslow block="Set Turn Slow Speed %speed"
+    //% speed.min=10 speed.max=100 speed.defl=20
+    //% group="Line Follower" weight=71 advanced=true
+    export function setTurnSlowSpeed(speed: number): void {
+        initState()
+        turnSlow = Math.constrain(speed, 0, 100)
     }
 
     /**
