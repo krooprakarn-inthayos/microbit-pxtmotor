@@ -3,16 +3,19 @@
 // มอเตอร์ M1 = ซ้าย, M2 = ขวา | Servo S1 = แขน, S2 = ตัวคีบ
 // ค่าเวลา ความเร็ว KP KD มุม Servo เป็นค่าตั้งต้น ต้องทดสอบและปรับตามหุ่นและสนามจริง
 
-let MIN = 50
+// ค่าตั้งต้นสำหรับจูน (ดูขั้นตอนจูนในคำอธิบาย)
+let MIN = 40
 let MAX = 100
-let KP = 0.02
-let KD = 0.1
+let KP = 0.015
+let KD = 0.05
 // เซนเซอร์อยู่หน้าล้อมาก: เจอเส้นตัดแล้วต้องเดินต่อให้ "แกนล้อ" อยู่ตรงทางแยกก่อนเลี้ยว
 // ปรับค่านี้จนหุ่นเลี้ยวแล้วตรงเส้นพอดี
 let CROSS_MS = 250
 
 // ---- มอเตอร์: หุ่นวิ่งถอยหลัง จึงกลับทิศทั้งสองล้อ (reverse ON) ----
 MDRobot.setMotors(motor.Motors.M1, true, motor.Motors.M2, true)
+// เบรกสั้นๆ ตอนหยุด ลดการไถลเลยเส้นหลัง TurnLINE / Find
+MDRobot.setBrakeTime(30)
 
 // ---- ตั้งค่าเซนเซอร์ (ค่าเริ่มต้นในบล็อกตรงกับหุ่นนี้อยู่แล้ว ใส่ไว้ให้เห็นชัด) ----
 MDRobot.setSensorCount(8)
@@ -67,6 +70,6 @@ input.onButtonPressed(Button.AB, function () {
 })
 basic.forever(function () {
     if (freeRun) {
-        MDRobot.Follower(60, 100, KP, KD)
+        MDRobot.Follower(MIN, MAX, KP, KD)
     }
 })

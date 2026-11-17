@@ -100,6 +100,10 @@ namespace MDRobot {
     let pdFirst: number
     let pdLast: number
     let previousError: number
+    // D คำนวณทุก pdDt ms (เซนเซอร์ดิจิทัลเปลี่ยนค่าเป็นขั้น ถ้าคำนวณทุกรอบ D จะเกิดแค่ ~1 ms จนไม่มีผล)
+    let dTerm: number
+    let lastPdTime: number
+    let pdDt: number
     let lastPos: number
 
     // ---------- มอเตอร์ ----------
@@ -137,6 +141,9 @@ namespace MDRobot {
         pdFirst = 0
         pdLast = 7
         previousError = 0
+        dTerm = 0
+        lastPdTime = 0
+        pdDt = 10
         lastPos = 3500
         leftMotor = motor.Motors.M1
         rightMotor = motor.Motors.M2
@@ -267,8 +274,18 @@ namespace MDRobot {
     function pdFromV(minSpeed: number, maxSpeed: number, kp: number, kd: number) {
         let n = pdLast - pdFirst + 1
         let error = positionFromV() - (n - 1) * 500
-        let pd = kp * error + kd * (error - previousError)
-        previousError = error
+        let now = control.millis()
+        if (now - lastPdTime > 200) {
+            // เพิ่งเริ่มวิ่ง (หรือหยุดไปนาน): ไม่ใช้ค่าเก่า กันหุ่นกระตุก
+            previousError = error
+            dTerm = 0
+            lastPdTime = now
+        } else if (now - lastPdTime >= pdDt) {
+            dTerm = kd * (error - previousError)
+            previousError = error
+            lastPdTime = now
+        }
+        let pd = kp * error + dTerm
         let l = minSpeed + pd
         let r = minSpeed - pd
         if (l > maxSpeed) {
@@ -499,6 +516,7 @@ namespace MDRobot {
         pdLast = N - 1
         lastPos = (N - 1) * 500
         previousError = 0
+        dTerm = 0
     }
 
     /**
@@ -608,6 +626,7 @@ namespace MDRobot {
         if (bad == 0) basic.showIcon(IconNames.Yes)
         else basic.showIcon(IconNames.Sad)
         previousError = 0
+        dTerm = 0
     }
 
     /**
@@ -625,6 +644,7 @@ namespace MDRobot {
             }
         }
         previousError = 0
+        dTerm = 0
     }
 
     //% blockId=md_print block="PrintSensorValue"
@@ -814,7 +834,20 @@ namespace MDRobot {
         if (dir == MD_Dir.Left) stopWithBrake(-s, s)
         else stopWithBrake(s, -s)
         previousError = 0
+        dTerm = 0
         lastPos = (pdLast - pdFirst) * 500
+    }
+
+    /**
+     * ช่วงเวลาคำนวณ KD (ms) ค่าเริ่มต้น 10 ค่ามาก = KD มีผลนานขึ้นต่อการเปลี่ยนตำแหน่งเส้น 1 ครั้ง
+     * 0 = คำนวณทุกรอบ (แบบเดิม)
+     */
+    //% blockId=md_pdinterval block="Set KD Interval %ms ms"
+    //% ms.min=0 ms.max=50 ms.defl=10
+    //% group="Line Follower" weight=72 advanced=true
+    export function setKDInterval(ms: number): void {
+        initState()
+        pdDt = Math.constrain(ms, 0, 50)
     }
 
     /**
@@ -844,6 +877,7 @@ namespace MDRobot {
             pdLast = l
             lastPos = (pdLast - pdFirst) * 500
             previousError = 0
+            dTerm = 0
         }
     }
 
