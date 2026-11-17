@@ -89,6 +89,7 @@ namespace MDRobot {
     let PINS: DigitalPin[]
     let N: number
     let pullReady: boolean
+    let sensorPull: PinPullMode
     // ค่าดิจิทัลที่เซนเซอร์ให้เมื่ออยู่บนเส้น (ได้จาก Calibrate) ค่าเริ่มต้น: เส้นดำ = 1
     let LINE_LEVEL: number[]
     let GROUND_LEVEL: number[]
@@ -134,6 +135,7 @@ namespace MDRobot {
         ready = true
         PINS = [DigitalPin.P0, DigitalPin.P1, DigitalPin.P2, DigitalPin.P8, DigitalPin.P12, DigitalPin.P13, DigitalPin.P14, DigitalPin.P15]
         N = 8
+        sensorPull = PinPullMode.PullDown
         LINE_LEVEL = [1, 1, 1, 1, 1, 1, 1, 1, 1]
         GROUND_LEVEL = [0, 0, 0, 0, 0, 0, 0, 0, 0]
         V = [0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -340,11 +342,11 @@ namespace MDRobot {
         return onLine(nearestGood(i))
     }
 
-    // ปลดตัวต้านทานดึงลงภายในของ micro:bit ทุกขาเซนเซอร์ (ค่าเริ่มต้นเป็น PullDown
-    // ซึ่งอาจทำให้เซนเซอร์แบบ open-collector อ่านค่า 1 ไม่ขึ้น)
+    // ตั้งตัวต้านทานภายในของขาเซนเซอร์ ค่าเริ่มต้น PullDown
+    // (ทดสอบกับหุ่นจริงแล้ว: เซนเซอร์ชุดนี้ส่งสัญญาณแอนะล็อก ต้องดึงลงจึงอ่านสีดำเป็น 0 ได้แน่นอน)
     function setupPins() {
         for (let i = 0; i < N; i++) {
-            pins.setPull(PINS[i], PinPullMode.PullNone)
+            pins.setPull(PINS[i], sensorPull)
         }
         pullReady = true
     }
@@ -531,6 +533,19 @@ namespace MDRobot {
         let i = Math.constrain(Math.round(index), 1, 9) - 1
         while (PINS.length <= i) PINS.push(DigitalPin.P16)
         PINS[i] = pin
+        pullReady = false
+    }
+
+    /**
+     * ตัวต้านทานภายในของขาเซนเซอร์ (ค่าเริ่มต้น PullDown)
+     * ใช้ test-raw.ts หาว่าแบบไหนอ่านเส้นได้ถูก แล้วตั้งค่าตามนั้น
+     */
+    //% blockId=md_sensorpull block="Set Line Sensor Pull %mode"
+    //% mode.defl=PinPullMode.PullDown
+    //% group="Sensor" weight=98 advanced=true
+    export function setSensorPull(mode: PinPullMode): void {
+        initState()
+        sensorPull = mode
         pullReady = false
     }
 
